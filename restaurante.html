@@ -395,14 +395,14 @@
 // ═══════════════════════════════════════════════
 // SUPABASE CONFIG
 // ═══════════════════════════════════════════════
-let supabase = null;
+let sbClient = null;
 
 function loadConfig() {
   const url = localStorage.getItem('sb_url');
   const key = localStorage.getItem('sb_key');
   if (url && key) {
     try {
-      supabase = window.supabase.createClient(url, key);
+      sbClient = window.supabase.createClient(url, key);
       document.getElementById('config-modal').style.display = 'none';
       initApp();
     } catch(e) {
@@ -431,7 +431,7 @@ async function saveConfig() {
     await client.from('restaurante_inventario').select('id').limit(1);
     localStorage.setItem('sb_url', url);
     localStorage.setItem('sb_key', key);
-    supabase = client;
+    sbClient = client;
     document.getElementById('config-modal').style.display = 'none';
     initApp();
   } catch(e) {
@@ -478,7 +478,7 @@ async function agregarInventario() {
   const unidad = document.getElementById('inv-unidad').value;
   const minimo = parseFloat(document.getElementById('inv-minimo').value) || 5;
   if (!nombre || isNaN(cantidad)) { toast('Completa nombre y cantidad'); return; }
-  const { error } = await supabase.from('restaurante_inventario').insert({ nombre, cantidad, unidad, minimo });
+  const { error } = await sbClient.from('restaurante_inventario').insert({ nombre, cantidad, unidad, minimo });
   if (error) { toast('Error al guardar'); return; }
   document.getElementById('inv-nombre').value = '';
   document.getElementById('inv-cantidad').value = '';
@@ -488,7 +488,7 @@ async function agregarInventario() {
 }
 
 async function renderInventario() {
-  const { data, error } = await supabase.from('restaurante_inventario').select('*').order('nombre');
+  const { data, error } = await sbClient.from('restaurante_inventario').select('*').order('nombre');
   if (error || !data) return;
 
   const alertas = data.filter(i => i.cantidad <= i.minimo);
@@ -525,13 +525,13 @@ async function renderInventario() {
 async function ajustarStock(id, actual, unidad) {
   const nuevo = prompt(`Stock actual: ${actual} ${unidad}\nNuevo valor:`);
   if (nuevo === null) return;
-  await supabase.from('restaurante_inventario').update({ cantidad: parseFloat(nuevo) }).eq('id', id);
+  await sbClient.from('restaurante_inventario').update({ cantidad: parseFloat(nuevo) }).eq('id', id);
   renderInventario();
 }
 
 async function eliminarInventario(id) {
   if (!confirm('¿Eliminar este producto?')) return;
-  await supabase.from('restaurante_inventario').delete().eq('id', id);
+  await sbClient.from('restaurante_inventario').delete().eq('id', id);
   renderInventario();
 }
 
@@ -547,7 +547,7 @@ async function agregarGasto() {
   const tasa = getTasa();
   const monto_usd = toUSD(monto, moneda);
   const fecha = new Date().toISOString().split('T')[0];
-  const { error } = await supabase.from('restaurante_gastos').insert({ nombre, monto, moneda, categoria, monto_usd, tasa_dia: tasa, fecha });
+  const { error } = await sbClient.from('restaurante_gastos').insert({ nombre, monto, moneda, categoria, monto_usd, tasa_dia: tasa, fecha });
   if (error) { toast('Error al guardar'); return; }
   document.getElementById('gasto-nombre').value = '';
   document.getElementById('gasto-monto').value = '';
@@ -557,7 +557,7 @@ async function agregarGasto() {
 
 async function renderGastos() {
   const hoy = new Date().toISOString().split('T')[0];
-  const { data } = await supabase.from('restaurante_gastos').select('*').order('created_at', { ascending: false }).limit(50);
+  const { data } = await sbClient.from('restaurante_gastos').select('*').order('created_at', { ascending: false }).limit(50);
   if (!data) return;
 
   const totalHoy = data.filter(g => g.fecha === hoy).reduce((s, g) => s + g.monto_usd, 0);
@@ -631,7 +631,7 @@ async function guardarPrecio() {
   const conMerma = costoUSD * (1 + merma / 100);
   const conFijos = conMerma * (1 + fijos / 100);
   const precio_venta = conFijos / (1 - margen / 100);
-  const { error } = await supabase.from('restaurante_menu').upsert({ nombre, costo, moneda, merma, fijos, margen, precio_venta, costo_usd: costoUSD }, { onConflict: 'nombre' });
+  const { error } = await sbClient.from('restaurante_menu').upsert({ nombre, costo, moneda, merma, fijos, margen, precio_venta, costo_usd: costoUSD }, { onConflict: 'nombre' });
   if (error) { toast('Error al guardar'); return; }
   toast('✅ Guardado en menú');
   renderMenu();
@@ -639,7 +639,7 @@ async function guardarPrecio() {
 }
 
 async function renderMenu() {
-  const { data } = await supabase.from('restaurante_menu').select('*').order('nombre');
+  const { data } = await sbClient.from('restaurante_menu').select('*').order('nombre');
   const list = document.getElementById('menu-list');
   if (!data || data.length === 0) { list.innerHTML = '<div class="empty"><div class="icon">🍽️</div><p>Sin productos en el menú</p></div>'; return; }
   const tasa = getTasa();
@@ -662,7 +662,7 @@ async function renderMenu() {
 let pedidoActual = {};
 
 async function renderPedidoItems() {
-  const { data } = await supabase.from('restaurante_menu').select('*').order('nombre');
+  const { data } = await sbClient.from('restaurante_menu').select('*').order('nombre');
   const container = document.getElementById('pedido-items');
   if (!data || data.length === 0) {
     container.innerHTML = '<div class="empty"><div class="icon">🍽️</div><p>Agrega productos en la pestaña Precios primero</p></div>';
@@ -703,7 +703,7 @@ async function confirmarPedido() {
   const total = items.reduce((s, [, v]) => s + v.qty * v.precio, 0);
   const fecha = new Date().toISOString().split('T')[0];
   const detalle = items.map(([, v]) => `${v.qty}x ${v.nombre}`).join(', ');
-  const { error } = await supabase.from('restaurante_pedidos').insert({
+  const { error } = await sbClient.from('restaurante_pedidos').insert({
     detalle, total_usd: total, tasa_dia: getTasa(), fecha,
     items: items.map(([id, v]) => ({ id, nombre: v.nombre, qty: v.qty, precio: v.precio }))
   });
@@ -716,7 +716,7 @@ async function confirmarPedido() {
 
 async function renderPedidos() {
   const hoy = new Date().toISOString().split('T')[0];
-  const { data } = await supabase.from('restaurante_pedidos').select('*').eq('fecha', hoy).order('created_at', { ascending: false });
+  const { data } = await sbClient.from('restaurante_pedidos').select('*').eq('fecha', hoy).order('created_at', { ascending: false });
   const list = document.getElementById('pedidos-list');
   if (!data || data.length === 0) { list.innerHTML = '<div class="empty"><div class="icon">🧾</div><p>Sin pedidos hoy</p></div>'; return; }
   const tasa = getTasa();
@@ -741,8 +741,8 @@ async function renderPedidos() {
 async function renderResumen() {
   const hoy = new Date().toISOString().split('T')[0];
   const [{ data: pedidos }, { data: gastos }] = await Promise.all([
-    supabase.from('restaurante_pedidos').select('*').eq('fecha', hoy),
-    supabase.from('restaurante_gastos').select('*').eq('fecha', hoy)
+    sbClient.from('restaurante_pedidos').select('*').eq('fecha', hoy),
+    sbClient.from('restaurante_gastos').select('*').eq('fecha', hoy)
   ]);
 
   const ventas = (pedidos || []).reduce((s, p) => s + p.total_usd, 0);
