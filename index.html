@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mi Restaurante</title>
+<title>Avil Burguer</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Inter:wght@400;500;600&display=swap');
@@ -248,7 +248,7 @@
 
 <!-- HEADER -->
 <header>
-  <div class="logo">🍔 Mi <span>Restaurante</span></div>
+  <div class="logo">🍔 Avil <span>Burguer</span></div>
   <button class="btn btn-ghost btn-sm" onclick="showConfig()">⚙️</button>
 </header>
 
@@ -441,18 +441,68 @@ async function saveConfig() {
 }
 
 // ═══════════════════════════════════════════════
-// TASA
+// TASA BCV
 // ═══════════════════════════════════════════════
 function saveTasa() {
   const t = document.getElementById('tasa-input').value;
   localStorage.setItem('tasa_bcv', t);
   const now = new Date().toLocaleDateString('es-VE');
   localStorage.setItem('tasa_fecha', now);
-  document.getElementById('tasa-fecha').textContent = 'Actualizada: ' + now;
+  localStorage.removeItem('tasa_fecha_iso'); // fuerza re-fetch mañana
+  document.getElementById('tasa-fecha').textContent = 'Manual · ' + now;
   calcularPrecio();
 }
+
 function getTasa() { return parseFloat(localStorage.getItem('tasa_bcv')) || 1; }
 function toUSD(monto, moneda) { return moneda === 'Bs' ? monto / getTasa() : monto; }
+
+async function fetchTasaBCV() {
+  const hoy = new Date().toISOString().split('T')[0];
+  const ultimaFecha = localStorage.getItem('tasa_fecha_iso');
+  if (ultimaFecha === hoy && localStorage.getItem('tasa_bcv')) {
+    mostrarTasa(); return;
+  }
+  document.getElementById('tasa-fecha').textContent = 'Actualizando...';
+  const apis = [
+    async () => {
+      const r = await fetch('https://pydolarve.org/api/v1/dollar?page=bcv', { signal: AbortSignal.timeout(6000) });
+      const d = await r.json();
+      return d?.monitors?.usd?.price || d?.price || null;
+    },
+    async () => {
+      const r = await fetch('https://ve.dolarapi.com/v1/dolares/oficial', { signal: AbortSignal.timeout(6000) });
+      const d = await r.json();
+      return d?.promedio || d?.price || null;
+    }
+  ];
+  for (const api of apis) {
+    try {
+      const tasa = await api();
+      if (tasa && tasa > 1) {
+        localStorage.setItem('tasa_bcv', tasa);
+        localStorage.setItem('tasa_fecha', new Date().toLocaleDateString('es-VE'));
+        localStorage.setItem('tasa_fecha_iso', hoy);
+        mostrarTasa();
+        toast('📡 Tasa BCV: Bs ' + parseFloat(tasa).toFixed(2));
+        return;
+      }
+    } catch {}
+  }
+  // Sin conexión: usa valor guardado
+  mostrarTasa();
+  const guardada = localStorage.getItem('tasa_bcv');
+  document.getElementById('tasa-fecha').textContent = guardada
+    ? '⚠️ Sin conexión · valor anterior'
+    : '⚠️ Ingresa la tasa manualmente';
+}
+
+function mostrarTasa() {
+  const tasa = localStorage.getItem('tasa_bcv') || '';
+  const fecha = localStorage.getItem('tasa_fecha') || '';
+  document.getElementById('tasa-input').value = tasa;
+  if (fecha) document.getElementById('tasa-fecha').textContent = 'BCV · ' + fecha;
+  calcularPrecio();
+}
 
 // ═══════════════════════════════════════════════
 // TABS
@@ -804,10 +854,7 @@ function toast(msg) {
 // INIT
 // ═══════════════════════════════════════════════
 async function initApp() {
-  const tasa = localStorage.getItem('tasa_bcv') || '';
-  const fecha = localStorage.getItem('tasa_fecha') || '';
-  document.getElementById('tasa-input').value = tasa;
-  if (fecha) document.getElementById('tasa-fecha').textContent = 'Actualizada: ' + fecha;
+  await fetchTasaBCV();
   await renderPedidoItems();
   await renderPedidos();
 }
