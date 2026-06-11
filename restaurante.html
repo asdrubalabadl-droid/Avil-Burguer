@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mi Restaurante</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Inter:wght@400;500;600&display=swap');
+
+  :root {
+    --bg: #1a1208;
+    --surface: #251c0e;
+    --surface2: #2f2310;
+    --border: #3d2f18;
+    --accent: #f59e0b;
+    --accent2: #ef4444;
+    --green: #22c55e;
+    --text: #fef3c7;
+    --muted: #a8936a;
+    --radius: 12px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+  }
+
+  /* CONFIG MODAL */
+  #config-modal {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000; padding: 20px;
+  }
+  #config-modal .box {
+    background: var(--surface); border-radius: var(--radius);
+    padding: 32px; max-width: 440px; width: 100%;
+    border: 1px solid var(--border);
+  }
+  #config-modal h2 { font-family: 'Syne', sans-serif; font-size: 1.4rem; color: var(--accent); margin-bottom: 8px; }
+  #config-modal p { color: var(--muted); font-size: 0.85rem; margin-bottom: 20px; line-height: 1.5; }
+  #config-modal input {
+    width: 100%; padding: 12px 14px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--bg);
+    color: var(--text); font-size: 0.9rem; margin-bottom: 10px;
+  }
+  #config-modal input::placeholder { color: var(--muted); }
+
+  /* HEADER */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 20px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .logo { font-family: 'Syne', sans-serif; font-size: 1.3rem; font-weight: 800; }
+  .logo span { color: var(--accent); }
+
+  /* TASA BAR */
+  .tasa-bar {
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 20px;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  .tasa-bar label { color: var(--muted); font-size: 0.8rem; }
+  .tasa-bar input {
+    background: var(--bg); border: 1px solid var(--border);
+    color: var(--accent); font-weight: 700; font-size: 1rem;
+    padding: 6px 10px; border-radius: 6px; width: 110px;
+  }
+  .tasa-bar .tag {
+    background: rgba(245,158,11,0.15); color: var(--accent);
+    font-size: 0.75rem; padding: 4px 10px; border-radius: 20px;
+    font-weight: 600;
+  }
+
+  /* TABS */
+  .tabs {
+    display: flex; overflow-x: auto; gap: 4px;
+    padding: 12px 16px; background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    scrollbar-width: none;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab-btn {
+    white-space: nowrap; padding: 8px 16px;
+    border-radius: 20px; border: 1px solid var(--border);
+    background: transparent; color: var(--muted);
+    font-size: 0.85rem; font-family: 'Inter', sans-serif;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .tab-btn.active {
+    background: var(--accent); color: #1a1208;
+    font-weight: 700; border-color: var(--accent);
+  }
+
+  /* MAIN */
+  main { padding: 20px 16px; max-width: 680px; margin: 0 auto; }
+
+  .section { display: none; }
+  .section.active { display: block; }
+
+  /* CARDS */
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px; margin-bottom: 14px;
+  }
+  .card-title {
+    font-family: 'Syne', sans-serif; font-size: 1rem;
+    color: var(--accent); margin-bottom: 14px;
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  /* FORMS */
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: 0.78rem; color: var(--muted); margin-bottom: 4px; font-weight: 500; }
+  .field input, .field select {
+    width: 100%; padding: 11px 14px;
+    border-radius: 8px; border: 1px solid var(--border);
+    background: var(--bg); color: var(--text);
+    font-size: 0.95rem; font-family: 'Inter', sans-serif;
+  }
+  .field select option { background: var(--surface); }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+
+  /* BUTTONS */
+  .btn {
+    padding: 12px 20px; border-radius: 8px; border: none;
+    font-family: 'Inter', sans-serif; font-weight: 600;
+    font-size: 0.9rem; cursor: pointer; transition: opacity 0.2s;
+    width: 100%;
+  }
+  .btn:hover { opacity: 0.85; }
+  .btn-primary { background: var(--accent); color: #1a1208; }
+  .btn-danger { background: var(--accent2); color: white; }
+  .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+  .btn-green { background: var(--green); color: #0f2d1c; }
+  .btn-sm { padding: 6px 12px; font-size: 0.78rem; width: auto; }
+
+  /* LIST ITEMS */
+  .item-list { display: flex; flex-direction: column; gap: 8px; }
+  .item-row {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px 14px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .item-row .name { font-weight: 600; font-size: 0.95rem; }
+  .item-row .sub { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+  .item-row .actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+  /* STOCK BADGE */
+  .stock-ok { color: var(--green); font-weight: 700; }
+  .stock-low { color: #f97316; font-weight: 700; }
+  .stock-out { color: var(--accent2); font-weight: 700; }
+  .alert-badge {
+    background: var(--accent2); color: white;
+    font-size: 0.7rem; padding: 2px 7px; border-radius: 10px;
+    font-weight: 700; margin-left: 6px;
+  }
+
+  /* RESUMEN CARDS */
+  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px; text-align: center;
+  }
+  .stat-card .val { font-family: 'Syne', sans-serif; font-size: 1.6rem; font-weight: 800; }
+  .stat-card .lbl { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
+  .stat-card.positive .val { color: var(--green); }
+  .stat-card.negative .val { color: var(--accent2); }
+  .stat-card.neutral .val { color: var(--accent); }
+
+  /* PEDIDO */
+  .pedido-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 0; border-bottom: 1px solid var(--border);
+  }
+  .pedido-item:last-child { border-bottom: none; }
+  .qty-ctrl { display: flex; align-items: center; gap: 8px; }
+  .qty-btn {
+    width: 28px; height: 28px; border-radius: 50%;
+    border: 1px solid var(--border); background: var(--surface2);
+    color: var(--text); font-size: 1rem; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .qty-num { font-weight: 700; min-width: 24px; text-align: center; }
+
+  /* PRECIO MOTOR */
+  .precio-resultado {
+    background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3);
+    border-radius: 10px; padding: 16px; margin-top: 12px;
+  }
+  .precio-resultado .big { font-family: 'Syne', sans-serif; font-size: 2rem; font-weight: 800; color: var(--accent); }
+  .precio-resultado .row-data { display: flex; justify-content: space-between; font-size: 0.83rem; color: var(--muted); margin-top: 6px; }
+
+  /* PROFIT INDICATOR */
+  .profit-bar { height: 8px; border-radius: 4px; background: var(--border); margin-top: 8px; overflow: hidden; }
+  .profit-fill { height: 100%; border-radius: 4px; background: var(--green); transition: width 0.4s; }
+
+  /* EMPTY STATE */
+  .empty { text-align: center; padding: 40px 20px; color: var(--muted); }
+  .empty .icon { font-size: 2.5rem; margin-bottom: 10px; }
+  .empty p { font-size: 0.9rem; }
+
+  /* TOAST */
+  #toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--text); padding: 12px 24px; border-radius: 20px;
+    font-size: 0.85rem; font-weight: 500;
+    opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 999;
+    white-space: nowrap;
+  }
+  #toast.show { opacity: 1; }
+
+  /* DIVIDER */
+  .divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+
+  .section-title { font-family: 'Syne', sans-serif; font-size: 1.2rem; font-weight: 800; margin-bottom: 16px; }
+
+  @media (max-width: 400px) {
+    .stats-grid { grid-template-columns: 1fr; }
+    .row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- CONFIG MODAL -->
+<div id="config-modal">
+  <div class="box">
+    <h2>⚙️ Configurar Supabase</h2>
+    <p>Ingresa las credenciales de tu proyecto Supabase. Solo se piden una vez y quedan guardadas en el dispositivo.</p>
+    <input type="text" id="cfg-url" placeholder="URL del proyecto (https://xxx.supabase.co)" />
+    <input type="text" id="cfg-key" placeholder="Anon Key" />
+    <button class="btn btn-primary" onclick="saveConfig()">Guardar y entrar</button>
+    <div id="cfg-error" style="color:#ef4444;font-size:0.8rem;margin-top:10px;display:none;"></div>
+  </div>
+</div>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">🍔 Mi <span>Restaurante</span></div>
+  <button class="btn btn-ghost btn-sm" onclick="showConfig()">⚙️</button>
+</header>
+
+<!-- TASA -->
+<div class="tasa-bar">
+  <label>Tasa BCV</label>
+  <input type="number" id="tasa-input" placeholder="0.00" step="0.01" oninput="saveTasa()" />
+  <span class="tag">Bs / USD</span>
+  <span id="tasa-fecha" style="font-size:0.75rem;color:var(--muted);"></span>
+</div>
+
+<!-- TABS -->
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('pedidos')">🧾 Pedidos</button>
+  <button class="tab-btn" onclick="switchTab('inventario')">📦 Inventario</button>
+  <button class="tab-btn" onclick="switchTab('gastos')">💸 Gastos</button>
+  <button class="tab-btn" onclick="switchTab('precios')">💰 Precios</button>
+  <button class="tab-btn" onclick="switchTab('resumen')">📊 Resumen</button>
+</div>
+
+<main>
+
+<!-- ═══════════════ PEDIDOS ═══════════════ -->
+<div id="tab-pedidos" class="section active">
+  <div class="section-title">Registrar Pedido</div>
+  <div class="card">
+    <div class="card-title">🛒 Nuevo pedido</div>
+    <div id="pedido-items" class="item-list"></div>
+    <hr class="divider">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <span style="color:var(--muted);font-size:0.85rem;">Total del pedido</span>
+      <span id="pedido-total" style="font-family:'Syne',sans-serif;font-size:1.4rem;font-weight:800;color:var(--accent);">$0.00</span>
+    </div>
+    <button class="btn btn-green" onclick="confirmarPedido()">✅ Confirmar Pedido</button>
+  </div>
+
+  <div class="section-title" style="margin-top:24px;">Pedidos del día</div>
+  <div id="pedidos-list" class="item-list"></div>
+</div>
+
+<!-- ═══════════════ INVENTARIO ═══════════════ -->
+<div id="tab-inventario" class="section">
+  <div class="section-title">Inventario</div>
+
+  <!-- Alertas -->
+  <div id="alertas-box"></div>
+
+  <div class="card">
+    <div class="card-title">➕ Agregar producto</div>
+    <div class="field"><label>Nombre del producto</label><input type="text" id="inv-nombre" placeholder="Ej: Panes de hamburguesa" /></div>
+    <div class="row">
+      <div class="field"><label>Cantidad actual</label><input type="number" id="inv-cantidad" placeholder="50" /></div>
+      <div class="field"><label>Unidad</label>
+        <select id="inv-unidad">
+          <option>unidad</option><option>kg</option><option>litro</option><option>paquete</option><option>caja</option>
+        </select>
+      </div>
+    </div>
+    <div class="field"><label>Mínimo (alerta cuando baje de)</label><input type="number" id="inv-minimo" placeholder="10" /></div>
+    <button class="btn btn-primary" onclick="agregarInventario()">Agregar</button>
+  </div>
+
+  <div id="inventario-list" class="item-list"></div>
+</div>
+
+<!-- ═══════════════ GASTOS ═══════════════ -->
+<div id="tab-gastos" class="section">
+  <div class="section-title">Gastos de Mercancía</div>
+  <div class="card">
+    <div class="card-title">➕ Registrar compra</div>
+    <div class="field"><label>¿Qué compraste?</label><input type="text" id="gasto-nombre" placeholder="Ej: Panes hamburguesa x50" /></div>
+    <div class="row">
+      <div class="field"><label>Monto</label><input type="number" id="gasto-monto" placeholder="0.00" step="0.01" /></div>
+      <div class="field"><label>Moneda</label>
+        <select id="gasto-moneda">
+          <option value="USD">USD $</option>
+          <option value="Bs">Bs</option>
+        </select>
+      </div>
+    </div>
+    <div class="field"><label>Categoría</label>
+      <select id="gasto-categoria">
+        <option>Carnes</option><option>Panes</option><option>Salsas y condimentos</option>
+        <option>Bebidas</option><option>Vegetales</option><option>Empaques</option><option>Otros</option>
+      </select>
+    </div>
+    <button class="btn btn-primary" onclick="agregarGasto()">Registrar</button>
+  </div>
+
+  <div id="gastos-summary" style="margin-bottom:12px;"></div>
+  <div id="gastos-list" class="item-list"></div>
+</div>
+
+<!-- ═══════════════ PRECIOS ═══════════════ -->
+<div id="tab-precios" class="section">
+  <div class="section-title">Motor de Precios</div>
+  <div class="card">
+    <div class="card-title">🧮 Calcular precio de venta</div>
+    <div class="field"><label>Producto</label><input type="text" id="precio-producto" placeholder="Ej: Hamburguesa doble" /></div>
+    <div class="row">
+      <div class="field"><label>Costo de insumos</label><input type="number" id="precio-costo" placeholder="0.00" step="0.01" oninput="calcularPrecio()" /></div>
+      <div class="field"><label>Moneda del costo</label>
+        <select id="precio-moneda" onchange="calcularPrecio()">
+          <option value="USD">USD $</option>
+          <option value="Bs">Bs</option>
+        </select>
+      </div>
+    </div>
+    <div class="row">
+      <div class="field"><label>% Merma / desperdicio</label><input type="number" id="precio-merma" placeholder="10" value="10" oninput="calcularPrecio()" /></div>
+      <div class="field"><label>% Gastos fijos (luz, gas...)</label><input type="number" id="precio-fijos" placeholder="15" value="15" oninput="calcularPrecio()" /></div>
+    </div>
+    <div class="field"><label>Margen de ganancia deseado (%)</label><input type="number" id="precio-margen" placeholder="40" value="40" oninput="calcularPrecio()" /></div>
+
+    <div id="precio-resultado" class="precio-resultado" style="display:none;"></div>
+
+    <button class="btn btn-primary" style="margin-top:14px;" onclick="guardarPrecio()">💾 Guardar en menú</button>
+  </div>
+
+  <div class="section-title" style="margin-top:24px;">Menú guardado</div>
+  <div id="menu-list" class="item-list"></div>
+</div>
+
+<!-- ═══════════════ RESUMEN ═══════════════ -->
+<div id="tab-resumen" class="section">
+  <div class="section-title">Resumen del día</div>
+  <div id="stats-hoy"></div>
+  <div class="card">
+    <div class="card-title">📈 Lo más vendido hoy</div>
+    <div id="top-ventas"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">💸 Gastos recientes</div>
+    <div id="gastos-recientes"></div>
+  </div>
+  <button class="btn btn-ghost" style="margin-top:8px;" onclick="exportarResumen()">📋 Copiar resumen</button>
+</div>
+
+</main>
+
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════
+// SUPABASE CONFIG
+// ═══════════════════════════════════════════════
+let supabase = null;
+
+function loadConfig() {
+  const url = localStorage.getItem('sb_url');
+  const key = localStorage.getItem('sb_key');
+  if (url && key) {
+    try {
+      supabase = window.supabase.createClient(url, key);
+      document.getElementById('config-modal').style.display = 'none';
+      initApp();
+    } catch(e) {
+      showConfigModal();
+    }
+  }
+}
+
+function showConfig() {
+  const url = localStorage.getItem('sb_url') || '';
+  const key = localStorage.getItem('sb_key') || '';
+  document.getElementById('cfg-url').value = url;
+  document.getElementById('cfg-key').value = key;
+  document.getElementById('config-modal').style.display = 'flex';
+}
+
+async function saveConfig() {
+  const url = document.getElementById('cfg-url').value.trim();
+  const key = document.getElementById('cfg-key').value.trim();
+  const err = document.getElementById('cfg-error');
+  err.style.display = 'none';
+  if (!url || !key) { err.textContent = 'Completa ambos campos'; err.style.display = 'block'; return; }
+  try {
+    const client = window.supabase.createClient(url, key);
+    // test connection
+    await client.from('restaurante_inventario').select('id').limit(1);
+    localStorage.setItem('sb_url', url);
+    localStorage.setItem('sb_key', key);
+    supabase = client;
+    document.getElementById('config-modal').style.display = 'none';
+    initApp();
+  } catch(e) {
+    err.textContent = 'No se pudo conectar. Verifica las credenciales y que las tablas existan.';
+    err.style.display = 'block';
+  }
+}
+
+// ═══════════════════════════════════════════════
+// TASA
+// ═══════════════════════════════════════════════
+function saveTasa() {
+  const t = document.getElementById('tasa-input').value;
+  localStorage.setItem('tasa_bcv', t);
+  const now = new Date().toLocaleDateString('es-VE');
+  localStorage.setItem('tasa_fecha', now);
+  document.getElementById('tasa-fecha').textContent = 'Actualizada: ' + now;
+  calcularPrecio();
+}
+function getTasa() { return parseFloat(localStorage.getItem('tasa_bcv')) || 1; }
+function toUSD(monto, moneda) { return moneda === 'Bs' ? monto / getTasa() : monto; }
+
+// ═══════════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════════
+function switchTab(name) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+  if (name === 'inventario') renderInventario();
+  if (name === 'gastos') renderGastos();
+  if (name === 'precios') renderMenu();
+  if (name === 'pedidos') renderPedidos();
+  if (name === 'resumen') renderResumen();
+}
+
+// ═══════════════════════════════════════════════
+// INVENTARIO
+// ═══════════════════════════════════════════════
+async function agregarInventario() {
+  const nombre = document.getElementById('inv-nombre').value.trim();
+  const cantidad = parseFloat(document.getElementById('inv-cantidad').value);
+  const unidad = document.getElementById('inv-unidad').value;
+  const minimo = parseFloat(document.getElementById('inv-minimo').value) || 5;
+  if (!nombre || isNaN(cantidad)) { toast('Completa nombre y cantidad'); return; }
+  const { error } = await supabase.from('restaurante_inventario').insert({ nombre, cantidad, unidad, minimo });
+  if (error) { toast('Error al guardar'); return; }
+  document.getElementById('inv-nombre').value = '';
+  document.getElementById('inv-cantidad').value = '';
+  document.getElementById('inv-minimo').value = '';
+  toast('✅ Producto agregado');
+  renderInventario();
+}
+
+async function renderInventario() {
+  const { data, error } = await supabase.from('restaurante_inventario').select('*').order('nombre');
+  if (error || !data) return;
+
+  const alertas = data.filter(i => i.cantidad <= i.minimo);
+  const alertasBox = document.getElementById('alertas-box');
+  if (alertas.length > 0) {
+    alertasBox.innerHTML = `<div class="card" style="border-color:#ef4444;background:rgba(239,68,68,0.1);margin-bottom:14px;">
+      <div class="card-title" style="color:#ef4444;">⚠️ Productos con stock bajo</div>
+      ${alertas.map(a => `<div style="font-size:0.9rem;padding:4px 0;color:var(--text);">${a.nombre}: <span class="${a.cantidad === 0 ? 'stock-out' : 'stock-low'}">${a.cantidad} ${a.unidad}</span></div>`).join('')}
+    </div>`;
+  } else {
+    alertasBox.innerHTML = '';
+  }
+
+  const list = document.getElementById('inventario-list');
+  if (data.length === 0) { list.innerHTML = '<div class="empty"><div class="icon">📦</div><p>Sin productos aún</p></div>'; return; }
+  list.innerHTML = data.map(i => {
+    const cls = i.cantidad === 0 ? 'stock-out' : i.cantidad <= i.minimo ? 'stock-low' : 'stock-ok';
+    return `<div class="item-row">
+      <div>
+        <div class="name">${i.nombre}</div>
+        <div class="sub">Mín: ${i.minimo} ${i.unidad}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="${cls}">${i.cantidad} ${i.unidad}</span>
+        <div style="display:flex;gap:4px;">
+          <button class="btn btn-ghost btn-sm" onclick="ajustarStock(${i.id}, ${i.cantidad}, '${i.unidad}')">✏️</button>
+          <button class="btn btn-danger btn-sm" onclick="eliminarInventario(${i.id})">🗑</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function ajustarStock(id, actual, unidad) {
+  const nuevo = prompt(`Stock actual: ${actual} ${unidad}\nNuevo valor:`);
+  if (nuevo === null) return;
+  await supabase.from('restaurante_inventario').update({ cantidad: parseFloat(nuevo) }).eq('id', id);
+  renderInventario();
+}
+
+async function eliminarInventario(id) {
+  if (!confirm('¿Eliminar este producto?')) return;
+  await supabase.from('restaurante_inventario').delete().eq('id', id);
+  renderInventario();
+}
+
+// ═══════════════════════════════════════════════
+// GASTOS
+// ═══════════════════════════════════════════════
+async function agregarGasto() {
+  const nombre = document.getElementById('gasto-nombre').value.trim();
+  const monto = parseFloat(document.getElementById('gasto-monto').value);
+  const moneda = document.getElementById('gasto-moneda').value;
+  const categoria = document.getElementById('gasto-categoria').value;
+  if (!nombre || isNaN(monto)) { toast('Completa los campos'); return; }
+  const tasa = getTasa();
+  const monto_usd = toUSD(monto, moneda);
+  const fecha = new Date().toISOString().split('T')[0];
+  const { error } = await supabase.from('restaurante_gastos').insert({ nombre, monto, moneda, categoria, monto_usd, tasa_dia: tasa, fecha });
+  if (error) { toast('Error al guardar'); return; }
+  document.getElementById('gasto-nombre').value = '';
+  document.getElementById('gasto-monto').value = '';
+  toast('✅ Gasto registrado');
+  renderGastos();
+}
+
+async function renderGastos() {
+  const hoy = new Date().toISOString().split('T')[0];
+  const { data } = await supabase.from('restaurante_gastos').select('*').order('created_at', { ascending: false }).limit(50);
+  if (!data) return;
+
+  const totalHoy = data.filter(g => g.fecha === hoy).reduce((s, g) => s + g.monto_usd, 0);
+  const totalTotal = data.reduce((s, g) => s + g.monto_usd, 0);
+
+  document.getElementById('gastos-summary').innerHTML = `
+    <div class="stats-grid">
+      <div class="stat-card neutral"><div class="val">$${totalHoy.toFixed(2)}</div><div class="lbl">Gastado hoy</div></div>
+      <div class="stat-card neutral"><div class="val">$${totalTotal.toFixed(2)}</div><div class="lbl">Total registrado</div></div>
+    </div>`;
+
+  const list = document.getElementById('gastos-list');
+  if (data.length === 0) { list.innerHTML = '<div class="empty"><div class="icon">💸</div><p>Sin gastos registrados</p></div>'; return; }
+  list.innerHTML = data.map(g => `
+    <div class="item-row">
+      <div>
+        <div class="name">${g.nombre}</div>
+        <div class="sub">${g.categoria} · ${g.fecha}</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-weight:700;color:var(--accent2);">${g.moneda === 'USD' ? '$' : 'Bs'}${g.monto.toFixed(2)}</div>
+        <div style="font-size:0.75rem;color:var(--muted);">≈ $${g.monto_usd.toFixed(2)}</div>
+      </div>
+    </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════
+// PRECIOS / MOTOR
+// ═══════════════════════════════════════════════
+function calcularPrecio() {
+  const costo = parseFloat(document.getElementById('precio-costo').value) || 0;
+  const moneda = document.getElementById('precio-moneda').value;
+  const merma = parseFloat(document.getElementById('precio-merma').value) || 0;
+  const fijos = parseFloat(document.getElementById('precio-fijos').value) || 0;
+  const margen = parseFloat(document.getElementById('precio-margen').value) || 40;
+  if (costo <= 0) { document.getElementById('precio-resultado').style.display = 'none'; return; }
+
+  const costoUSD = toUSD(costo, moneda);
+  const conMerma = costoUSD * (1 + merma / 100);
+  const conFijos = conMerma * (1 + fijos / 100);
+  const precioVenta = conFijos / (1 - margen / 100);
+  const ganancia = precioVenta - costoUSD;
+  const tasa = getTasa();
+
+  const el = document.getElementById('precio-resultado');
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div style="margin-bottom:8px;font-size:0.8rem;color:var(--muted);">Precio sugerido de venta</div>
+    <div class="big">$${precioVenta.toFixed(2)}</div>
+    <div style="font-size:0.9rem;color:var(--muted);margin-top:4px;">Bs ${(precioVenta * tasa).toFixed(2)}</div>
+    <div class="profit-bar"><div class="profit-fill" style="width:${Math.min(margen,100)}%;"></div></div>
+    <div class="row-data">
+      <span>Costo real: $${costoUSD.toFixed(2)}</span>
+      <span>Ganancia: $${ganancia.toFixed(2)} (${margen}%)</span>
+    </div>
+    <div class="row-data">
+      <span>Con merma: $${conMerma.toFixed(2)}</span>
+      <span>Con fijos: $${conFijos.toFixed(2)}</span>
+    </div>`;
+}
+
+async function guardarPrecio() {
+  const nombre = document.getElementById('precio-producto').value.trim();
+  const costo = parseFloat(document.getElementById('precio-costo').value) || 0;
+  const moneda = document.getElementById('precio-moneda').value;
+  const merma = parseFloat(document.getElementById('precio-merma').value) || 0;
+  const fijos = parseFloat(document.getElementById('precio-fijos').value) || 0;
+  const margen = parseFloat(document.getElementById('precio-margen').value) || 40;
+  if (!nombre || costo <= 0) { toast('Completa producto y costo'); return; }
+  const costoUSD = toUSD(costo, moneda);
+  const conMerma = costoUSD * (1 + merma / 100);
+  const conFijos = conMerma * (1 + fijos / 100);
+  const precio_venta = conFijos / (1 - margen / 100);
+  const { error } = await supabase.from('restaurante_menu').upsert({ nombre, costo, moneda, merma, fijos, margen, precio_venta, costo_usd: costoUSD }, { onConflict: 'nombre' });
+  if (error) { toast('Error al guardar'); return; }
+  toast('✅ Guardado en menú');
+  renderMenu();
+  renderPedidoItems();
+}
+
+async function renderMenu() {
+  const { data } = await supabase.from('restaurante_menu').select('*').order('nombre');
+  const list = document.getElementById('menu-list');
+  if (!data || data.length === 0) { list.innerHTML = '<div class="empty"><div class="icon">🍽️</div><p>Sin productos en el menú</p></div>'; return; }
+  const tasa = getTasa();
+  list.innerHTML = data.map(p => `
+    <div class="item-row">
+      <div>
+        <div class="name">${p.nombre}</div>
+        <div class="sub">Costo: $${p.costo_usd.toFixed(2)} · Margen: ${p.margen}%</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-weight:700;color:var(--green);">$${p.precio_venta.toFixed(2)}</div>
+        <div style="font-size:0.75rem;color:var(--muted);">Bs ${(p.precio_venta * tasa).toFixed(2)}</div>
+      </div>
+    </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════
+// PEDIDOS
+// ═══════════════════════════════════════════════
+let pedidoActual = {};
+
+async function renderPedidoItems() {
+  const { data } = await supabase.from('restaurante_menu').select('*').order('nombre');
+  const container = document.getElementById('pedido-items');
+  if (!data || data.length === 0) {
+    container.innerHTML = '<div class="empty"><div class="icon">🍽️</div><p>Agrega productos en la pestaña Precios primero</p></div>';
+    return;
+  }
+  container.innerHTML = data.map(p => {
+    const qty = pedidoActual[p.id]?.qty || 0;
+    return `<div class="pedido-item">
+      <div>
+        <div style="font-weight:600;">${p.nombre}</div>
+        <div style="font-size:0.78rem;color:var(--muted);">$${p.precio_venta.toFixed(2)} c/u</div>
+      </div>
+      <div class="qty-ctrl">
+        <button class="qty-btn" onclick="cambiarQty(${p.id}, ${p.precio_venta}, '${p.nombre}', -1)">−</button>
+        <span class="qty-num" id="qty-${p.id}">${qty}</span>
+        <button class="qty-btn" onclick="cambiarQty(${p.id}, ${p.precio_venta}, '${p.nombre}', 1)">+</button>
+      </div>
+    </div>`;
+  }).join('');
+  actualizarTotalPedido();
+}
+
+function cambiarQty(id, precio, nombre, delta) {
+  if (!pedidoActual[id]) pedidoActual[id] = { qty: 0, precio, nombre };
+  pedidoActual[id].qty = Math.max(0, pedidoActual[id].qty + delta);
+  document.getElementById('qty-' + id).textContent = pedidoActual[id].qty;
+  actualizarTotalPedido();
+}
+
+function actualizarTotalPedido() {
+  const total = Object.values(pedidoActual).reduce((s, i) => s + i.qty * i.precio, 0);
+  document.getElementById('pedido-total').textContent = '$' + total.toFixed(2);
+}
+
+async function confirmarPedido() {
+  const items = Object.entries(pedidoActual).filter(([, v]) => v.qty > 0);
+  if (items.length === 0) { toast('Agrega al menos un ítem'); return; }
+  const total = items.reduce((s, [, v]) => s + v.qty * v.precio, 0);
+  const fecha = new Date().toISOString().split('T')[0];
+  const detalle = items.map(([, v]) => `${v.qty}x ${v.nombre}`).join(', ');
+  const { error } = await supabase.from('restaurante_pedidos').insert({
+    detalle, total_usd: total, tasa_dia: getTasa(), fecha,
+    items: items.map(([id, v]) => ({ id, nombre: v.nombre, qty: v.qty, precio: v.precio }))
+  });
+  if (error) { toast('Error al guardar pedido'); return; }
+  pedidoActual = {};
+  renderPedidoItems();
+  renderPedidos();
+  toast('✅ Pedido confirmado — $' + total.toFixed(2));
+}
+
+async function renderPedidos() {
+  const hoy = new Date().toISOString().split('T')[0];
+  const { data } = await supabase.from('restaurante_pedidos').select('*').eq('fecha', hoy).order('created_at', { ascending: false });
+  const list = document.getElementById('pedidos-list');
+  if (!data || data.length === 0) { list.innerHTML = '<div class="empty"><div class="icon">🧾</div><p>Sin pedidos hoy</p></div>'; return; }
+  const tasa = getTasa();
+  list.innerHTML = data.map(p => {
+    const hora = new Date(p.created_at).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' });
+    return `<div class="item-row">
+      <div>
+        <div class="name" style="font-size:0.88rem;">${p.detalle}</div>
+        <div class="sub">${hora}</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-weight:700;color:var(--green);">$${p.total_usd.toFixed(2)}</div>
+        <div style="font-size:0.75rem;color:var(--muted);">Bs ${(p.total_usd * tasa).toFixed(2)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════
+// RESUMEN
+// ═══════════════════════════════════════════════
+async function renderResumen() {
+  const hoy = new Date().toISOString().split('T')[0];
+  const [{ data: pedidos }, { data: gastos }] = await Promise.all([
+    supabase.from('restaurante_pedidos').select('*').eq('fecha', hoy),
+    supabase.from('restaurante_gastos').select('*').eq('fecha', hoy)
+  ]);
+
+  const ventas = (pedidos || []).reduce((s, p) => s + p.total_usd, 0);
+  const costos = (gastos || []).reduce((s, g) => s + g.monto_usd, 0);
+  const ganancia = ventas - costos;
+  const margen = ventas > 0 ? (ganancia / ventas * 100) : 0;
+
+  document.getElementById('stats-hoy').innerHTML = `
+    <div class="stats-grid" style="margin-bottom:14px;">
+      <div class="stat-card neutral"><div class="val">$${ventas.toFixed(2)}</div><div class="lbl">Vendido hoy</div></div>
+      <div class="stat-card neutral"><div class="val">$${costos.toFixed(2)}</div><div class="lbl">Gastado hoy</div></div>
+      <div class="stat-card ${ganancia >= 0 ? 'positive' : 'negative'}"><div class="val">$${ganancia.toFixed(2)}</div><div class="lbl">Ganancia neta</div></div>
+      <div class="stat-card ${margen >= 20 ? 'positive' : 'negative'}"><div class="val">${margen.toFixed(0)}%</div><div class="lbl">Margen del día</div></div>
+    </div>
+    <div style="background:${ganancia >= 0 ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)'};border:1px solid ${ganancia >= 0 ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'};border-radius:10px;padding:14px;text-align:center;margin-bottom:16px;">
+      <div style="font-size:0.85rem;color:var(--muted);margin-bottom:4px;">Veredicto del día</div>
+      <div style="font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:800;color:${ganancia >= 0 ? 'var(--green)' : 'var(--accent2)'};">
+        ${ganancia >= 0 ? '📈 Estás ganando' : '📉 Estás perdiendo'}
+      </div>
+    </div>`;
+
+  // Top ventas
+  const conteo = {};
+  (pedidos || []).forEach(p => {
+    (p.items || []).forEach(i => {
+      conteo[i.nombre] = (conteo[i.nombre] || 0) + i.qty;
+    });
+  });
+  const top = Object.entries(conteo).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  document.getElementById('top-ventas').innerHTML = top.length === 0
+    ? '<div class="empty"><p>Sin ventas hoy</p></div>'
+    : top.map(([n, q]) => `<div class="pedido-item"><span>${n}</span><span style="font-weight:700;color:var(--accent);">${q} vendidos</span></div>`).join('');
+
+  // Gastos recientes
+  document.getElementById('gastos-recientes').innerHTML = (gastos || []).length === 0
+    ? '<div class="empty"><p>Sin gastos hoy</p></div>'
+    : (gastos || []).map(g => `<div class="pedido-item"><span>${g.nombre}</span><span style="color:var(--accent2);font-weight:600;">$${g.monto_usd.toFixed(2)}</span></div>`).join('');
+}
+
+function exportarResumen() {
+  const el = document.getElementById('stats-hoy');
+  const texto = el.innerText.replace(/\n+/g, '\n').trim();
+  navigator.clipboard.writeText('📊 Resumen Mi Restaurante\n' + new Date().toLocaleDateString('es-VE') + '\n\n' + texto)
+    .then(() => toast('📋 Resumen copiado'))
+    .catch(() => toast('No se pudo copiar'));
+}
+
+// ═══════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+async function initApp() {
+  const tasa = localStorage.getItem('tasa_bcv') || '';
+  const fecha = localStorage.getItem('tasa_fecha') || '';
+  document.getElementById('tasa-input').value = tasa;
+  if (fecha) document.getElementById('tasa-fecha').textContent = 'Actualizada: ' + fecha;
+  await renderPedidoItems();
+  await renderPedidos();
+}
+
+window.addEventListener('load', loadConfig);
+</script>
+</body>
+</html>
