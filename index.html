@@ -269,6 +269,21 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-h
 #flash{position:fixed;inset:0;background:rgba(245,158,11,0.13);pointer-events:none;opacity:0;transition:opacity 0.2s;z-index:50}
 #flash.on{opacity:1}
 
+/* ══ QUICK ORDER ══ */
+.qo-row{display:grid;grid-template-columns:1fr auto auto auto;align-items:center;gap:7px;padding:8px 0;border-bottom:1px solid var(--border)}
+.qo-row:last-child{border-bottom:none}
+.qo-nombre{padding:9px 11px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:0.88rem;font-family:'Inter',sans-serif;width:100%}
+.qo-num{width:64px;padding:9px 8px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:0.88rem;font-family:'Inter',sans-serif;text-align:center}
+.qo-del{background:none;border:1px solid var(--border);color:var(--muted);border-radius:7px;width:32px;height:36px;cursor:pointer;font-size:0.9rem;display:flex;align-items:center;justify-content:center}
+.qo-del:active{background:var(--red);color:white;border-color:var(--red)}
+.qo-head{display:grid;grid-template-columns:1fr auto auto auto;gap:7px;padding-bottom:5px;margin-bottom:2px}
+.qo-head span{font-size:0.7rem;color:var(--muted);font-weight:600}
+.qo-total-bar{display:flex;justify-content:space-between;align-items:center;padding:13px 0 4px;border-top:1px solid var(--border);margin-top:8px}
+.qo-total-bar .lbl{font-size:0.83rem;color:var(--muted)}
+.qo-total-bar .val{font-family:'Syne',sans-serif;font-size:1.5rem;font-weight:800;color:var(--accent)}
+.qo-add-btn{background:none;border:1px dashed var(--border);color:var(--muted);border-radius:8px;padding:9px;width:100%;font-family:'Inter',sans-serif;font-size:0.83rem;cursor:pointer;margin-top:8px;transition:all 0.15s}
+.qo-add-btn:hover{border-color:var(--accent);color:var(--accent)}
+
 /* ══ TABLET (768px+) ══ */
 @media(min-width:768px){
   #app-main{max-width:100%;padding:20px 28px}
@@ -415,6 +430,52 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-h
 <!-- CIERRE MODAL -->
 <div id="cierre-modal" class="modal center"><div class="modal-box" id="cierre-modal-content"></div></div>
 
+<!-- QUICK ORDER MODAL -->
+<div id="quick-order-modal" class="modal">
+  <div class="modal-box">
+    <div class="modal-title">📋 Nuevo Pedido</div>
+    <div class="field">
+      <label>Tipo de servicio</label>
+      <div class="tipo-grid">
+        <button class="tipo-btn active" id="qo-tipo-mesa" onclick="qoSetTipo('mesa',this)"><span class="tipo-icon">🪑</span>Mesa</button>
+        <button class="tipo-btn" id="qo-tipo-llevar" onclick="qoSetTipo('llevar',this)"><span class="tipo-icon">🥡</span>Para llevar</button>
+        <button class="tipo-btn" id="qo-tipo-delivery" onclick="qoSetTipo('delivery',this)"><span class="tipo-icon">🛵</span>Delivery</button>
+      </div>
+    </div>
+    <div class="field">
+      <label id="qo-ref-label">Número de mesa</label>
+      <input type="text" id="qo-ref" placeholder="Mesa 1, Mesa 2…"/>
+    </div>
+    <div class="field">
+      <label>Cliente <span style="color:var(--muted);font-weight:400">(opcional)</span></label>
+      <input type="text" id="qo-cliente" placeholder="Ej: Juan Pérez"/>
+    </div>
+    <div class="field">
+      <label>Ítems del pedido</label>
+      <div class="qo-head">
+        <span>Producto</span><span style="text-align:center">Cant.</span><span style="text-align:center">Precio $</span><span></span>
+      </div>
+      <div id="qo-items-list"></div>
+      <button class="qo-add-btn" onclick="qoAddRow()">+ Agregar ítem</button>
+    </div>
+    <div class="field">
+      <label>Nota general <span style="color:var(--muted);font-weight:400">(opcional)</span></label>
+      <input type="text" id="qo-nota" placeholder="Ej: sin cebolla en todo, extra salsa…"/>
+    </div>
+    <div class="qo-total-bar">
+      <span class="lbl">Total</span>
+      <div style="text-align:right">
+        <div class="val" id="qo-total-usd">$0.00</div>
+        <div style="font-size:0.78rem;color:var(--muted);margin-top:2px" id="qo-total-bs">Bs. 0.00</div>
+      </div>
+    </div>
+    <div class="btn-flex" style="margin-top:14px">
+      <button class="btn btn-ghost" onclick="closeModal('quick-order-modal')">Cancelar</button>
+      <button class="btn btn-green" onclick="qoEnviar()">✅ Enviar a cocina</button>
+    </div>
+  </div>
+</div>
+
 <!-- CANCEL MODAL -->
 <div id="cancel-modal" class="modal center">
   <div class="modal-box" style="max-width:340px;text-align:center">
@@ -485,7 +546,7 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-h
       <span style="color:var(--muted);font-size:0.83rem">Total</span>
       <span id="pedido-total" style="font-family:'Syne',sans-serif;font-size:1.4rem;font-weight:800;color:var(--accent)">$0.00</span>
     </div>
-    <button class="btn btn-green" onclick="abrirOrderModal()">📋 Confirmar Pedido</button>
+    <button class="btn btn-green" onclick="abrirQuickOrder()">📋 Confirmar Pedido</button>
   </div>
   <div class="section-title" style="margin-top:20px">Pedidos del día</div>
   <div id="pedidos-list" class="item-list"></div>
@@ -776,6 +837,105 @@ async function decrementarInventario(items){
     if(Object.keys(consumo).length)toast('📦 Inventario actualizado automáticamente');
     if(alerts.length)setTimeout(()=>toast('⚠️ Stock bajo: '+alerts.join(', ')),2800);
   }catch(e){console.warn('Descuento inventario:',e);}
+}
+
+// ══ QUICK ORDER ══
+let qoTipo='mesa';
+let qoRows=[];
+
+function abrirQuickOrder(){
+  qoTipo='mesa';
+  qoRows=[];
+  // Pre-cargar ítems del pedido actual si ya había algo seleccionado del menú
+  const itemsMenu=Object.values(pedidoActual).filter(i=>i.qty>0);
+  if(itemsMenu.length){
+    qoRows=itemsMenu.map(i=>({nombre:i.nombre,qty:i.qty,precio:i.precio}));
+  } else {
+    qoRows=[{nombre:'',qty:1,precio:0},{nombre:'',qty:1,precio:0}];
+  }
+  document.getElementById('qo-ref').value='';
+  document.getElementById('qo-cliente').value='';
+  document.getElementById('qo-nota').value='';
+  document.querySelectorAll('.tipo-btn[id^="qo-tipo"]').forEach((b,i)=>b.classList.toggle('active',i===0));
+  document.getElementById('qo-ref-label').textContent='Número de mesa';
+  document.getElementById('qo-ref').placeholder='Mesa 1, Mesa 2…';
+  qoRender();
+  document.getElementById('quick-order-modal').style.display='flex';
+}
+
+function qoSetTipo(tipo,btn){
+  qoTipo=tipo;
+  document.querySelectorAll('.tipo-btn[id^="qo-tipo"]').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const labels={mesa:'Número de mesa',llevar:'Nombre del cliente',delivery:'Dirección / referencia'};
+  const placeholders={mesa:'Mesa 1, Mesa 2…',llevar:'Ej: Juan Pérez',delivery:'Ej: Calle 5, casa azul'};
+  document.getElementById('qo-ref-label').textContent=labels[tipo];
+  document.getElementById('qo-ref').placeholder=placeholders[tipo];
+}
+
+function qoAddRow(){
+  qoRows.push({nombre:'',qty:1,precio:0});
+  qoRender();
+  // Focus en el nuevo input
+  setTimeout(()=>{
+    const inputs=document.querySelectorAll('.qo-nombre');
+    if(inputs.length)inputs[inputs.length-1].focus();
+  },50);
+}
+
+function qoRemoveRow(i){
+  qoRows.splice(i,1);
+  if(!qoRows.length)qoRows=[{nombre:'',qty:1,precio:0}];
+  qoRender();
+}
+
+function qoUpdate(i,field,val){
+  qoRows[i][field]=field==='nombre'?val:(parseFloat(val)||0);
+  qoCalcTotal();
+}
+
+function qoCalcTotal(){
+  const t=qoRows.reduce((s,r)=>s+(r.qty||1)*(r.precio||0),0);
+  document.getElementById('qo-total-usd').textContent='$'+t.toFixed(2);
+  document.getElementById('qo-total-bs').textContent='Bs. '+(t*getTasa()).toFixed(2);
+  return t;
+}
+
+function qoRender(){
+  document.getElementById('qo-items-list').innerHTML=qoRows.map((r,i)=>`
+    <div class="qo-row">
+      <input class="qo-nombre" type="text" placeholder="Ej: Hamburguesa doble" value="${r.nombre}" oninput="qoUpdate(${i},'nombre',this.value)"/>
+      <input class="qo-num" type="number" placeholder="1" value="${r.qty||1}" min="1" oninput="qoUpdate(${i},'qty',this.value)"/>
+      <input class="qo-num" type="number" placeholder="0.00" value="${r.precio||''}" min="0" step="0.01" oninput="qoUpdate(${i},'precio',this.value)"/>
+      <button class="qo-del" onclick="qoRemoveRow(${i})">✕</button>
+    </div>`).join('');
+  qoCalcTotal();
+}
+
+async function qoEnviar(){
+  const validos=qoRows.filter(r=>r.nombre.trim()&&r.qty>0);
+  if(!validos.length){toast('Agrega al menos un ítem con nombre');return;}
+  const sinPrecio=validos.filter(r=>!r.precio||r.precio<=0);
+  if(sinPrecio.length){toast('Todos los ítems deben tener precio');return;}
+  const total=validos.reduce((s,r)=>s+r.qty*r.precio,0);
+  const ref=document.getElementById('qo-ref').value.trim();
+  const mesa=ref||{mesa:'Sin mesa',llevar:'Para llevar',delivery:'Delivery'}[qoTipo];
+  const cliente=document.getElementById('qo-cliente').value.trim();
+  const nota=document.getElementById('qo-nota').value.trim();
+  const detalle=validos.map(r=>`${r.qty}x ${r.nombre}`).join(', ');
+  const items=validos.map((r,i)=>({id:'qo_'+i,nombre:r.nombre,qty:r.qty,precio:r.precio}));
+  const notas_items=nota?{'_general':nota}:{};
+  const{error}=await sb.from('restaurante_pedidos').insert({
+    detalle,total_usd:total,tasa_dia:getTasa(),
+    fecha:new Date().toISOString().split('T')[0],
+    items,mesa,tipo:qoTipo,notas_items,cliente,pago:'pendiente'
+  });
+  if(error){toast('Error al enviar pedido: '+error.message);return;}
+  closeModal('quick-order-modal');
+  pedidoActual={};
+  renderPedidoItems();
+  renderPedidosCtrl();
+  toast('✅ Pedido enviado — $'+total.toFixed(2));
 }
 
 // ══ RECETAS ══
