@@ -401,6 +401,39 @@
 
 </main>
 
+<!-- MODAL EDITAR PRECIO -->
+<div id="edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:200;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;max-width:420px;width:100%;">
+    <div style="font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:800;color:var(--accent);margin-bottom:16px;">✏️ Editar producto</div>
+    <input type="hidden" id="edit-id" />
+    <div class="field"><label>Nombre</label><input type="text" id="edit-nombre" /></div>
+    <div class="row">
+      <div class="field"><label>Costo</label><input type="number" id="edit-costo" step="0.01" oninput="previewEdit()" /></div>
+      <div class="field"><label>Moneda</label>
+        <select id="edit-moneda" onchange="previewEdit()">
+          <option value="USD">USD $</option>
+          <option value="Bs">Bs</option>
+        </select>
+      </div>
+    </div>
+    <div class="row">
+      <div class="field"><label>% Merma</label><input type="number" id="edit-merma" oninput="previewEdit()" /></div>
+      <div class="field"><label>% Gastos fijos</label><input type="number" id="edit-fijos" oninput="previewEdit()" /></div>
+    </div>
+    <div class="field"><label>% Margen de ganancia</label><input type="number" id="edit-margen" oninput="previewEdit()" /></div>
+    <div id="edit-preview" style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:12px;margin:12px 0;display:none;">
+      <div style="font-size:0.78rem;color:var(--muted);">Precio de venta calculado</div>
+      <div id="edit-preview-val" style="font-family:'Syne',sans-serif;font-size:1.6rem;font-weight:800;color:var(--accent);"></div>
+      <div id="edit-preview-bs" style="font-size:0.85rem;color:var(--muted);"></div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:4px;">
+      <button class="btn btn-primary" onclick="guardarEdicion()">💾 Guardar</button>
+      <button class="btn btn-danger" onclick="eliminarPlato()">🗑 Eliminar</button>
+      <button class="btn btn-ghost" onclick="cerrarEditModal()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -732,6 +765,7 @@ async function renderMenu() {
             <div style="font-weight:700;color:var(--green);">$${p.precio_venta.toFixed(2)}</div>
             <div style="font-size:0.72rem;color:var(--muted);">Bs ${(p.precio_venta * tasa).toFixed(2)}</div>
           </div>
+          <button class="btn btn-ghost btn-sm" onclick="abrirEditModal(${p.id}, '${p.nombre.replace(/'/g,"\\'")}', ${p.costo}, '${p.moneda}', ${p.merma}, ${p.fijos}, ${p.margen})" style="padding:6px 10px;">✏️</button>
           <button class="btn btn-ghost btn-sm" onclick="toggleFicha(${p.id})" style="padding:6px 10px;">🧾</button>
         </div>
       </div>
@@ -785,6 +819,72 @@ async function limpiarFicha(id) {
   await sbClient.from('restaurante_menu').update({ ficha_tecnica: [] }).eq('id', id);
   toast('Ficha limpiada');
   renderMenu();
+}
+
+function abrirEditModal(id, nombre, costo, moneda, merma, fijos, margen) {
+  document.getElementById('edit-id').value = id;
+  document.getElementById('edit-nombre').value = nombre;
+  document.getElementById('edit-costo').value = costo;
+  document.getElementById('edit-moneda').value = moneda;
+  document.getElementById('edit-merma').value = merma;
+  document.getElementById('edit-fijos').value = fijos;
+  document.getElementById('edit-margen').value = margen;
+  previewEdit();
+  const modal = document.getElementById('edit-modal');
+  modal.style.display = 'flex';
+}
+
+function cerrarEditModal() {
+  document.getElementById('edit-modal').style.display = 'none';
+}
+
+function previewEdit() {
+  const costo = parseFloat(document.getElementById('edit-costo').value) || 0;
+  const moneda = document.getElementById('edit-moneda').value;
+  const merma = parseFloat(document.getElementById('edit-merma').value) || 0;
+  const fijos = parseFloat(document.getElementById('edit-fijos').value) || 0;
+  const margen = parseFloat(document.getElementById('edit-margen').value) || 0;
+  if (costo <= 0) { document.getElementById('edit-preview').style.display = 'none'; return; }
+  const costoUSD = toUSD(costo, moneda);
+  const conMerma = costoUSD * (1 + merma / 100);
+  const conFijos = conMerma * (1 + fijos / 100);
+  const precio = conFijos / (1 - margen / 100);
+  const tasa = getTasa();
+  document.getElementById('edit-preview').style.display = 'block';
+  document.getElementById('edit-preview-val').textContent = '$' + precio.toFixed(2);
+  document.getElementById('edit-preview-bs').textContent = 'Bs ' + (precio * tasa).toFixed(2);
+}
+
+async function guardarEdicion() {
+  const id = document.getElementById('edit-id').value;
+  const nombre = document.getElementById('edit-nombre').value.trim();
+  const costo = parseFloat(document.getElementById('edit-costo').value) || 0;
+  const moneda = document.getElementById('edit-moneda').value;
+  const merma = parseFloat(document.getElementById('edit-merma').value) || 0;
+  const fijos = parseFloat(document.getElementById('edit-fijos').value) || 0;
+  const margen = parseFloat(document.getElementById('edit-margen').value) || 0;
+  if (!nombre || costo <= 0) { toast('Completa nombre y costo'); return; }
+  const costoUSD = toUSD(costo, moneda);
+  const conMerma = costoUSD * (1 + merma / 100);
+  const conFijos = conMerma * (1 + fijos / 100);
+  const precio_venta = conFijos / (1 - margen / 100);
+  const { error } = await sbClient.from('restaurante_menu').update({ nombre, costo, moneda, merma, fijos, margen, precio_venta, costo_usd: costoUSD }).eq('id', id);
+  if (error) { toast('Error al guardar'); return; }
+  cerrarEditModal();
+  toast('✅ Producto actualizado');
+  renderMenu();
+  renderPedidoItems();
+}
+
+async function eliminarPlato() {
+  const id = document.getElementById('edit-id').value;
+  const nombre = document.getElementById('edit-nombre').value;
+  if (!confirm('¿Eliminar "' + nombre + '" del menú?')) return;
+  await sbClient.from('restaurante_menu').delete().eq('id', id);
+  cerrarEditModal();
+  toast('Producto eliminado');
+  renderMenu();
+  renderPedidoItems();
 }
 
 // ═══════════════════════════════════════════════
